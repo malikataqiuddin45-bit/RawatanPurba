@@ -27,7 +27,18 @@ workflows:
           ./gradlew clean
           ./gradlew --no-daemon assembleDebug --stacktrace
           cd ..
-      - name: Collect artifact (README layout)
+      - name: Collect artifact (multi-path Expo 54 fix)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f \
+            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
+            find android/app/build/outputs -type f -name "*.apk" || true
+            exit 1
+          fi
+          cp "$APK" builds/android/app-debug.apk
+          echo "✅ APK copied: builds/android/app-debug.apk"
         script: |
           mkdir -p builds/android
           APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1)
@@ -61,7 +72,18 @@ workflows:
           ./gradlew clean
           ./gradlew --no-daemon assembleRelease --stacktrace
           cd ..
-      - name: Collect artifact (README layout)
+      - name: Collect artifact (multi-path Expo 54 fix)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f \
+            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
+            find android/app/build/outputs -type f -name "*.apk" || true
+            exit 1
+          fi
+          cp "$APK" builds/android/app-debug.apk
+          echo "✅ APK copied: builds/android/app-debug.apk"
         script: |
           mkdir -p builds/android
           APK=$(find android/app/build/outputs -type f -name "*release*.apk" | head -n 1)
@@ -94,7 +116,18 @@ workflows:
           ./gradlew clean
           ./gradlew --no-daemon bundleRelease --stacktrace
           cd ..
-      - name: Collect artifact (README layout)
+      - name: Collect artifact (multi-path Expo 54 fix)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f \
+            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
+            find android/app/build/outputs -type f -name "*.apk" || true
+            exit 1
+          fi
+          cp "$APK" builds/android/app-debug.apk
+          echo "✅ APK copied: builds/android/app-debug.apk"
         script: |
           mkdir -p builds/android
           AAB=$(find android/app/build/outputs -type f -name "*.aab" | head -n 1)
@@ -164,7 +197,18 @@ workflows:
           ./gradlew assembleDebug --stacktrace
           ./gradlew bundleRelease --stacktrace
           cd ..
-      - name: Collect artifacts
+      - name: Collect artifact (multi-path Expo 54 fix)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f \
+            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
+            find android/app/build/outputs -type f -name "*.apk" || true
+            exit 1
+          fi
+          cp "$APK" builds/android/app-debug.apk
+          echo "✅ APK copied: builds/android/app-debug.apk"
         script: |
           mkdir -p builds/android
           APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1 || true)
