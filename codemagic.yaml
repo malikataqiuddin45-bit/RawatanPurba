@@ -1,8 +1,10 @@
 workflows:
-  expo_debug_apk:
-    name: Expo Debug APK (force assemble)
-    max_build_duration: 60
+
+  # 1) DEBUG APK
+  native_android_debug:
+    name: Native Android Debug (Expo prebuild → assembleDebug)
     instance_type: linux_x2
+    max_build_duration: 60
     environment:
       node: 20
       npm: 9
@@ -11,45 +13,104 @@ workflows:
         EXPO_NO_INTERACTIVE: "true"
         NODE_ENV: "development"
     scripts:
-      - name: Install dependencies
+      - name: Install deps
         script: |
           npm ci || npm install
-          npm install -g expo-cli
-      - name: Ensure icons
+      - name: Expo prebuild (android only)
         script: |
-          mkdir -p assets
-          [ -f assets/icon.png ] || curl -sL -o assets/icon.png https://cdn.jsdelivr.net/gh/expo/expo@main/templates/expo-template-bare-minimum/assets/icon.png
-          [ -f assets/adaptive-icon.png ] || curl -sL -o assets/adaptive-icon.png https://cdn.jsdelivr.net/gh/expo/expo@main/templates/expo-template-bare-minimum/assets/adaptive-icon.png
-      - name: Prebuild android
-        script: |
-          rm -rf android
-          npx expo prebuild --platform android --clean --non-interactive || true
-          ls android || echo "⚠️ Android folder mungkin kosong, teruskan paksa build"
-      - name: Force Gradle wrapper
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Build Debug APK (Gradle)
         script: |
           cd android
-          [ -f gradlew ] || ./gradlew help || (gradle wrapper || true)
           chmod +x gradlew || true
+          ./gradlew --no-daemon assembleDebug --stacktrace
           cd ..
-      - name: Build APK (fallback ke assembleRelease jika debug tiada)
-        script: |
-          cd android
-          ./gradlew tasks | grep assembleDebug || ./gradlew tasks
-          ./gradlew assembleDebug --stacktrace || ./gradlew assembleRelease --stacktrace || true
-          cd ..
-      - name: List output dir
-        script: |
-          echo "📁 Output build:"
-          find android/app/build/outputs -type f -print || echo "❌ Tiada fail dijumpai"
       - name: Collect artifact (auto-detect)
         script: |
-          APK_PATH=$(find android/app/build/outputs -type f -name "*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "❌ Tiada APK dijumpai — semak prebuild atau Gradle logs"
+          mkdir -p build
+          APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1)
+          test -n "$APK" || { echo "No debug APK produced"; exit 1; }
+          cp "$APK" build/app-debug.apk
+    artifacts:
+      - build/app-debug.apk
+
+  # 2) RELEASE APK
+  native_android_release_apk:
+    name: Native Android Release APK (assembleRelease)
+    instance_type: linux_x2
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+    scripts:
+      - name: Install deps & prebuild
+        script: |
+          npm ci || npm install
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Build Release APK
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew --no-daemon assembleRelease --stacktrace
+          cd ..
+      - name: Collect artifact
+        script: |
+          mkdir -p build
+          APK=$(find android/app/build/outputs -type f -name "*release*.apk" | head -n 1)
+          test -n "$APK" || { echo "No release APK produced"; exit 1; }
+          cp "$APK" build/app-release.apk
+    artifacts:
+      - build/app-release.apk
+
+  # 3) RELEASE AAB
+  native_android_release_aab:
+    name: Native Android Release AAB (bundleRelease)
+    instance_type: linux_x2
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+    scripts:
+      - name: Install deps & prebuild
+        script: |
+          npm ci || npm install
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Build AAB (bundleRelease)
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew --no-daemon bundleRelease --stacktrace
+          cd ..
+      - name: Collect artifact
+        script: |
+          mkdir -p build
+          AAB=$(find android/app/build/outputs -type f -name "*.aab" | head -n 1)
+          test -n "$AAB" || { echo "No AAB produced"; exit 1; }
+          cp "$AAB" build/app-release.aab
+    artifacts:
+      - build/app-release.aab
+
+  # 4) CONVERT AAB → UNIVERSAL APK (bundletool)
+  convert_aab_to_apk:
+    name: Convert AAB to APK (bundletool)
+    instance_type: linux_x2
+    environment:
+      java: 17
+    scripts:
+      - name: Ensure AAB exists
+        script: |
+          mkdir -p build
+          if [ ! -f build/app-release.aab ]; then
+            echo "Expected build/app-release.aab not found. Run 'native_android_release_aab' first."
             exit 1
           fi
-          mkdir -p build
-          cp "$APK_PATH" build/forensik-debug.apk
-          echo "✅ Disalin ke build/forensik-debug.apk"
+      - name: Download bundletool & convert
+        script: |
+          curl -sL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar
+          java -jar bundletool.jar build-apks --bundle=build/app-release.aab --output=build/app.apks --mode=universal
+          unzip -o build/app.apks universal.apk -d build
+          mv build/universal.apk build/app-universal.apk
     artifacts:
-      - build/forensik-debug.apk
+      - build/app-universal.apk
