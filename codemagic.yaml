@@ -128,3 +128,50 @@ workflows:
           echo "✅ Wrote: builds/android/app-universal.apk"
     artifacts:
       - builds/android/app-universal.apk
+
+  # ========================= ANDROID (selari gaya iOS) ======================
+  react-native-android:
+    name: React Native Android (APK + AAB)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+      vars:
+        EXPO_RELEASE_CHANNEL: "android-mars"
+    scripts:
+      - name: Install deps & Expo CLI
+        script: |
+          yarn install || npm install
+          npm i -g expo-cli
+      - name: Expo prebuild Android
+        script: |
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Publish (optional — ikut channel)
+        script: |
+          if [ -n "${EXPO_TOKEN:-}" ]; then
+            npx expo login --token "$EXPO_TOKEN"
+          else
+            npx expo login -u "$EXPO_USERNAME" -p "$EXPO_PASSWORD"
+          fi
+          npx expo publish --non-interactive --max-workers 1 --release-channel "$EXPO_RELEASE_CHANNEL"
+      - name: Build APK (Debug) & AAB (Release)
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew clean
+          ./gradlew assembleDebug --stacktrace
+          ./gradlew bundleRelease --stacktrace
+          cd ..
+      - name: Collect artifacts
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1 || true)
+          AAB=$(find android/app/build/outputs -type f -name "*.aab"        | head -n 1 || true)
+          [ -n "$APK" ] && cp "$APK" builds/android/app-debug.apk || echo "⚠️  No APK found"
+          [ -n "$AAB" ] && cp "$AAB" builds/android/app-release.aab || echo "⚠️  No AAB found"
+          [ -n "$APK$AAB" ] || { echo "❌ No artifacts produced"; exit 1; }
+    artifacts:
+      - builds/android/app-debug.apk
+      - builds/android/app-release.aab
