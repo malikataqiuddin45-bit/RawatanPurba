@@ -1,0 +1,28 @@
+nohup: ignoring input
+
+[1;36m== Expo prebuild (android) ==[0m
+  --non-interactive is not supported, use $CI=1 instead
+! Git branch has uncommitted file changes
+› It's recommended to commit all changes before proceeding in case you want to revert generated changes.
+Git status is dirty but the command will continue because the terminal is not interactive.
+- Clearing android
+✔ Cleared android code
+- Creating native directory (./android)
+✔ Created native directory
+- Updating package.json
+✔ Updated package.json | no changes
+- Running prebuild
+✔ Finished prebuild
+
+[1;36m== Patch Gradle outputDir to standard ==[0m
+cp: warning: behavior of -n is non-portable and may change in future; use --update=none instead
+cp: warning: behavior of -n is non-portable and may change in future; use --update=none instead
+cp: warning: behavior of -n is non-portable and may change in future; use --update=none instead
+
+[1;36m== Gradle assembleDebug ==[0m
+
+ERROR: JAVA_HOME is set to an invalid directory: /usr/lib/jvm/java-17-openjdk-amd64
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation.
+

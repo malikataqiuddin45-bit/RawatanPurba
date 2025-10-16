@@ -180,15 +180,3 @@ dependencies {
         implementation jscFlavor
     }
 }
-
-android.applicationVariants.all { variant ->
-  variant.outputs.all { output ->
-    if (variant.buildType.name == "debug") {
-      output.outputFileName = "app-debug.apk"
-      outputDir = new File("$rootDir/app/build/outputs/apk/debug")
-    } else if (variant.buildType.name == "release") {
-      output.outputFileName = "app-release.apk"
-      outputDir = new File("$rootDir/app/build/outputs/apk/release")
-    }
-  }
-}
