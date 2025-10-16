@@ -1,48 +1,46 @@
-apply plugin: "com.android.application"
-apply plugin: "org.jetbrains.kotlin.android"
-
-import com.android.build.OutputFile
-
-project.ext.react = [
-    enableHermes: false,  // disable Hermes for simplicity
-]
+plugins {
+  id 'com.android.application'
+  id 'org.jetbrains.kotlin.android'
+}
 
 android {
-    namespace "com.redsulphur.forensiknama"
-    compileSdkVersion 34
+  namespace "com.redsulphur.forensiknama"
+  compileSdk 34
 
-    defaultConfig {
-        applicationId "com.redsulphur.forensiknama"
-        minSdkVersion 24
-        targetSdkVersion 34
-        versionCode 1
-        versionName "1.0"
-    }
+  defaultConfig {
+    applicationId "com.redsulphur.forensiknama"
+    minSdk 24
+    targetSdk 34
+    versionCode 1
+    versionName "1.0.0"
+  }
 
-    buildTypes {
-        debug {
-            signingConfig signingConfigs.debug
-        }
-        release {
-            minifyEnabled false
-            shrinkResources false
-            signingConfig signingConfigs.debug
-        }
+  buildTypes {
+    debug {
+      // boleh run tanpa Metro jika JS dibundle (kita tak paksa di sini)
+      signingConfig signingConfigs.debug
     }
+    release {
+      minifyEnabled false
+      shrinkResources false
+      signingConfig signingConfigs.debug
+    }
+  }
 
-    packagingOptions {
-        pickFirst '**/*.so'
-        pickFirst '**/libc++_shared.so'
-    }
+  packagingOptions {
+    pickFirst '**/libc++_shared.so'
+    pickFirst '**/*.so'
+  }
 
-    lint {
-        abortOnError false
-    }
+  lint {
+    abortOnError false
+  }
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.0"
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'com.facebook.react:react-android:+'
+  implementation 'androidx.core:core-ktx:1.12.0'
+  implementation 'androidx.appcompat:appcompat:1.7.0'
+  implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+  // React Native (biar RN resolve sendiri ikut node_modules)
+  implementation 'com.facebook.react:react-android:+'
 }

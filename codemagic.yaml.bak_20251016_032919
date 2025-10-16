@@ -1,0 +1,130 @@
+workflows:
+
+  # 1) NATIVE ANDROID — DEBUG (assembleDebug)
+  #    Output: builds/android/app-preview.apk
+  native_android_debug:
+    name: Native Android Debug (assembleDebug)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+        PROFILE: "preview"
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci || npm install
+      - name: Expo prebuild (android only)
+        script: |
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Gradle assembleDebug
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew clean
+          ./gradlew --no-daemon assembleDebug --stacktrace
+          cd ..
+      - name: Collect artifact (README layout)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1)
+          test -n "$APK" || { echo "No debug APK produced"; exit 1; }
+          cp "$APK" "builds/android/app-preview.apk"
+          echo "✅ Wrote: builds/android/app-preview.apk"
+    artifacts:
+      - builds/android/app-preview.apk
+
+  # 2) NATIVE ANDROID — RELEASE APK (assembleRelease)
+  #    Output: builds/android/app-production.apk
+  native_android_release_apk:
+    name: Native Android Release APK (assembleRelease)
+    instance_type: linux_x2
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+        PROFILE: "production"
+    scripts:
+      - name: Install deps & prebuild
+        script: |
+          npm ci || npm install
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Gradle assembleRelease
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew clean
+          ./gradlew --no-daemon assembleRelease --stacktrace
+          cd ..
+      - name: Collect artifact (README layout)
+        script: |
+          mkdir -p builds/android
+          APK=$(find android/app/build/outputs -type f -name "*release*.apk" | head -n 1)
+          test -n "$APK" || { echo "No release APK produced"; exit 1; }
+          cp "$APK" "builds/android/app-production.apk"
+          echo "✅ Wrote: builds/android/app-production.apk"
+    artifacts:
+      - builds/android/app-production.apk
+
+  # 3) NATIVE ANDROID — RELEASE AAB (bundleRelease)
+  #    Output: builds/android/app-production.aab
+  native_android_release_aab:
+    name: Native Android Release AAB (bundleRelease)
+    instance_type: linux_x2
+    environment:
+      node: 20
+      npm: 9
+      java: 17
+      vars:
+        PROFILE: "production"
+    scripts:
+      - name: Install deps & prebuild
+        script: |
+          npm ci || npm install
+          npx expo prebuild --platform android --clean --non-interactive
+      - name: Gradle bundleRelease
+        script: |
+          cd android
+          chmod +x gradlew || true
+          ./gradlew clean
+          ./gradlew --no-daemon bundleRelease --stacktrace
+          cd ..
+      - name: Collect artifact (README layout)
+        script: |
+          mkdir -p builds/android
+          AAB=$(find android/app/build/outputs -type f -name "*.aab" | head -n 1)
+          test -n "$AAB" || { echo "No AAB produced"; exit 1; }
+          cp "$AAB" "builds/android/app-production.aab"
+          echo "✅ Wrote: builds/android/app-production.aab"
+    artifacts:
+      - builds/android/app-production.aab
+
+  # 4) CONVERT AAB → UNIVERSAL APK (bundletool)
+  #    Input:  builds/android/app-production.aab
+  #    Output: builds/android/app-universal.apk
+  convert_aab_to_apk:
+    name: Convert AAB to Universal APK (bundletool)
+    instance_type: linux_x2
+    environment:
+      java: 17
+    scripts:
+      - name: Ensure AAB exists
+        script: |
+          test -f builds/android/app-production.aab || { echo "Expected builds/android/app-production.aab not found. Run 'native_android_release_aab' first."; exit 1; }
+      - name: Download bundletool & convert to universal APK
+        script: |
+          curl -sL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar
+          java -jar bundletool.jar build-apks \
+            --bundle=builds/android/app-production.aab \
+            --output=builds/android/app.apks \
+            --mode=universal
+          unzip -o builds/android/app.apks universal.apk -d builds/android
+          mv builds/android/universal.apk builds/android/app-universal.apk
+          echo "✅ Wrote: builds/android/app-universal.apk"
+    artifacts:
+      - builds/android/app-universal.apk
