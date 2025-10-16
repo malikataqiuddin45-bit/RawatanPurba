@@ -1,0 +1,95 @@
+workflows:
+
+  # ================== DEBUG APK (Native Gradle) ==================
+  native_android_debug:
+    name: Native Android Debug (index.sh → assembleDebug)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 20
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+    scripts:
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build debug (native)
+        script: ./index.sh --native-android -p debug --no-install
+      - name: Check artifact
+        script: |
+          ls -la builds/android || true
+          test -f builds/android/app-debug.apk || { echo "No debug APK produced"; exit 1; }
+    artifacts:
+      - builds/android/app-debug.apk
+
+  # ================== RELEASE APK (Native Gradle) ==================
+  native_android_release_apk:
+    name: Native Android Release APK (index.sh → assembleRelease)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 20
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+    scripts:
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build release APK (native)
+        script: ./index.sh --native-android -p production --apk --no-install
+      - name: Check artifact
+        script: |
+          ls -la builds/android || true
+          test -f builds/android/app-production.apk || { echo "No release APK produced"; exit 1; }
+    artifacts:
+      - builds/android/app-production.apk
+
+  # ================== RELEASE AAB (Native Gradle) ==================
+  native_android_release_aab:
+    name: Native Android Release AAB (index.sh → bundleRelease)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 20
+      java: 17
+      vars:
+        EXPO_NO_INTERACTIVE: "true"
+    scripts:
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build AAB (native)
+        script: ./index.sh --native-android -p production --aab --no-install
+      - name: Check artifact
+        script: |
+          ls -la builds/android || true
+          test -f builds/android/app-production.aab || { echo "No AAB produced"; exit 1; }
+    artifacts:
+      - builds/android/app-production.aab
+
+  # ===== Convert AAB → APK universal (bundletool, ikut index.sh) =====
+  convert_aab_to_apk:
+    name: Convert AAB to Universal APK (index.sh bundletool)
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      java: 17
+    scripts:
+      - name: Ensure AAB exists
+        script: |
+          test -f builds/android/app-production.aab || { echo "Run native_android_release_aab dahulu"; exit 1; }
+      - name: Convert via index.sh
+        script: |
+          ./index.sh --convert-aab builds/android/app-production.aab
+          mkdir -p builds/android
+          # index.sh biasanya hasilkan app-universal.apk → pindahkan ke lokasi standard
+          APK=$(find . -type f -name "app-universal.apk" | head -n 1 || true)
+          test -n "$APK" || { echo "No universal APK produced"; exit 1; }
+          mv "$APK" builds/android/app-universal.apk
+    artifacts:
+      - builds/android/app-universal.apk
