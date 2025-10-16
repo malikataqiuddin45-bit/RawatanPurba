@@ -1,8 +1,9 @@
 workflows:
 
-  # 1) DEBUG APK
+  # 1) NATIVE ANDROID — DEBUG (assembleDebug)
+  #    Output: builds/android/app-preview.apk
   native_android_debug:
-    name: Native Android Debug (Expo prebuild → assembleDebug)
+    name: Native Android Debug (assembleDebug)
     instance_type: linux_x2
     max_build_duration: 60
     environment:
@@ -11,30 +12,33 @@ workflows:
       java: 17
       vars:
         EXPO_NO_INTERACTIVE: "true"
-        NODE_ENV: "development"
+        PROFILE: "preview"
     scripts:
-      - name: Install deps
+      - name: Install dependencies
         script: |
           npm ci || npm install
       - name: Expo prebuild (android only)
         script: |
           npx expo prebuild --platform android --clean --non-interactive
-      - name: Build Debug APK (Gradle)
+      - name: Gradle assembleDebug
         script: |
           cd android
           chmod +x gradlew || true
+          ./gradlew clean
           ./gradlew --no-daemon assembleDebug --stacktrace
           cd ..
-      - name: Collect artifact (auto-detect)
+      - name: Collect artifact (README layout)
         script: |
-          mkdir -p build
+          mkdir -p builds/android
           APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1)
           test -n "$APK" || { echo "No debug APK produced"; exit 1; }
-          cp "$APK" build/app-debug.apk
+          cp "$APK" "builds/android/app-preview.apk"
+          echo "✅ Wrote: builds/android/app-preview.apk"
     artifacts:
-      - build/app-debug.apk
+      - builds/android/app-preview.apk
 
-  # 2) RELEASE APK
+  # 2) NATIVE ANDROID — RELEASE APK (assembleRelease)
+  #    Output: builds/android/app-production.apk
   native_android_release_apk:
     name: Native Android Release APK (assembleRelease)
     instance_type: linux_x2
@@ -44,27 +48,31 @@ workflows:
       java: 17
       vars:
         EXPO_NO_INTERACTIVE: "true"
+        PROFILE: "production"
     scripts:
       - name: Install deps & prebuild
         script: |
           npm ci || npm install
           npx expo prebuild --platform android --clean --non-interactive
-      - name: Build Release APK
+      - name: Gradle assembleRelease
         script: |
           cd android
           chmod +x gradlew || true
+          ./gradlew clean
           ./gradlew --no-daemon assembleRelease --stacktrace
           cd ..
-      - name: Collect artifact
+      - name: Collect artifact (README layout)
         script: |
-          mkdir -p build
+          mkdir -p builds/android
           APK=$(find android/app/build/outputs -type f -name "*release*.apk" | head -n 1)
           test -n "$APK" || { echo "No release APK produced"; exit 1; }
-          cp "$APK" build/app-release.apk
+          cp "$APK" "builds/android/app-production.apk"
+          echo "✅ Wrote: builds/android/app-production.apk"
     artifacts:
-      - build/app-release.apk
+      - builds/android/app-production.apk
 
-  # 3) RELEASE AAB
+  # 3) NATIVE ANDROID — RELEASE AAB (bundleRelease)
+  #    Output: builds/android/app-production.aab
   native_android_release_aab:
     name: Native Android Release AAB (bundleRelease)
     instance_type: linux_x2
@@ -72,45 +80,51 @@ workflows:
       node: 20
       npm: 9
       java: 17
+      vars:
+        PROFILE: "production"
     scripts:
       - name: Install deps & prebuild
         script: |
           npm ci || npm install
           npx expo prebuild --platform android --clean --non-interactive
-      - name: Build AAB (bundleRelease)
+      - name: Gradle bundleRelease
         script: |
           cd android
           chmod +x gradlew || true
+          ./gradlew clean
           ./gradlew --no-daemon bundleRelease --stacktrace
           cd ..
-      - name: Collect artifact
+      - name: Collect artifact (README layout)
         script: |
-          mkdir -p build
+          mkdir -p builds/android
           AAB=$(find android/app/build/outputs -type f -name "*.aab" | head -n 1)
           test -n "$AAB" || { echo "No AAB produced"; exit 1; }
-          cp "$AAB" build/app-release.aab
+          cp "$AAB" "builds/android/app-production.aab"
+          echo "✅ Wrote: builds/android/app-production.aab"
     artifacts:
-      - build/app-release.aab
+      - builds/android/app-production.aab
 
   # 4) CONVERT AAB → UNIVERSAL APK (bundletool)
+  #    Input:  builds/android/app-production.aab
+  #    Output: builds/android/app-universal.apk
   convert_aab_to_apk:
-    name: Convert AAB to APK (bundletool)
+    name: Convert AAB to Universal APK (bundletool)
     instance_type: linux_x2
     environment:
       java: 17
     scripts:
       - name: Ensure AAB exists
         script: |
-          mkdir -p build
-          if [ ! -f build/app-release.aab ]; then
-            echo "Expected build/app-release.aab not found. Run 'native_android_release_aab' first."
-            exit 1
-          fi
-      - name: Download bundletool & convert
+          test -f builds/android/app-production.aab || { echo "Expected builds/android/app-production.aab not found. Run 'native_android_release_aab' first."; exit 1; }
+      - name: Download bundletool & convert to universal APK
         script: |
           curl -sL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar
-          java -jar bundletool.jar build-apks --bundle=build/app-release.aab --output=build/app.apks --mode=universal
-          unzip -o build/app.apks universal.apk -d build
-          mv build/universal.apk build/app-universal.apk
+          java -jar bundletool.jar build-apks \
+            --bundle=builds/android/app-production.aab \
+            --output=builds/android/app.apks \
+            --mode=universal
+          unzip -o builds/android/app.apks universal.apk -d builds/android
+          mv builds/android/universal.apk builds/android/app-universal.apk
+          echo "✅ Wrote: builds/android/app-universal.apk"
     artifacts:
-      - build/app-universal.apk
+      - builds/android/app-universal.apk
