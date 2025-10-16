@@ -1,6 +1,6 @@
 workflows:
   expo_debug_apk:
-    name: Expo Debug APK (prebuild + gradle)
+    name: Expo Debug APK (force assemble)
     max_build_duration: 60
     instance_type: linux_x2
     environment:
@@ -13,36 +13,43 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
-          echo "Node: $(node -v) | NPM: $(npm -v)"
           npm ci || npm install
-      - name: Ensure icons (avoid prebuild icon errors)
+          npm install -g expo-cli
+      - name: Ensure icons
         script: |
           mkdir -p assets
           [ -f assets/icon.png ] || curl -sL -o assets/icon.png https://cdn.jsdelivr.net/gh/expo/expo@main/templates/expo-template-bare-minimum/assets/icon.png
           [ -f assets/adaptive-icon.png ] || curl -sL -o assets/adaptive-icon.png https://cdn.jsdelivr.net/gh/expo/expo@main/templates/expo-template-bare-minimum/assets/adaptive-icon.png
-      - name: Expo prebuild (android only)
+      - name: Prebuild android
         script: |
-          npx expo prebuild --platform android --clean --non-interactive
-      - name: OPTIONAL – bundle JS in Debug (run without Metro)
-        script: |
-          FILE=android/app/build.gradle
-          grep -q "bundleInDebug" "$FILE" || \
-          sed -i '1s;^;project.ext.react = [ bundleInDebug: true ]\n;' "$FILE"
-      - name: Build Debug APK
+          rm -rf android
+          npx expo prebuild --platform android --clean --non-interactive || true
+          ls android || echo "⚠️ Android folder mungkin kosong, teruskan paksa build"
+      - name: Force Gradle wrapper
         script: |
           cd android
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug --stacktrace
+          [ -f gradlew ] || ./gradlew help || (gradle wrapper || true)
+          chmod +x gradlew || true
           cd ..
+      - name: Build APK (fallback ke assembleRelease jika debug tiada)
+        script: |
+          cd android
+          ./gradlew tasks | grep assembleDebug || ./gradlew tasks
+          ./gradlew assembleDebug --stacktrace || ./gradlew assembleRelease --stacktrace || true
+          cd ..
+      - name: List output dir
+        script: |
+          echo "📁 Output build:"
+          find android/app/build/outputs -type f -print || echo "❌ Tiada fail dijumpai"
       - name: Collect artifact (auto-detect)
         script: |
-          echo "🔍 Searching for APK output..."
           APK_PATH=$(find android/app/build/outputs -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "❌ Tiada APK dijumpai, semak build.gradle"
+            echo "❌ Tiada APK dijumpai — semak prebuild atau Gradle logs"
             exit 1
           fi
-          echo "✅ Jumpa APK di: $APK_PATH"
           mkdir -p build
           cp "$APK_PATH" build/forensik-debug.apk
           echo "✅ Disalin ke build/forensik-debug.apk"
+    artifacts:
+      - build/forensik-debug.apk
