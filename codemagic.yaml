@@ -1,8 +1,8 @@
 workflows:
-  expo_apk_gradle9:
-    name: "Expo 54 APK Autopatch (Gradle 9 + Kotlin 2.0.21)"
-    max_build_duration: 60
+  expo_apk_gradle87:
+    name: "Expo APK (Gradle 8.7 + AGP 8.6.1 + Kotlin 2.0.21)"
     instance_type: linux_x2
+    max_build_duration: 60
     environment:
       java: 17
       node: 20
@@ -12,103 +12,22 @@ workflows:
           set -euxo pipefail
           npm ci || npm install
 
-      - name: Force Gradle 9 + Kotlin 2.0.21 + AGP 9 patch
+      - name: Verify wrapper & versions (must be Gradle 8.7)
         script: |
           set -euxo pipefail
-          # wrapper
-          mkdir -p android/gradle/wrapper
-          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's#^distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-9.0-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
-          else
-            echo 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.0-all.zip' > android/gradle/wrapper/gradle-wrapper.properties
-            {
-              echo 'distributionBase=GRADLE_USER_HOME'
-              echo 'distributionPath=wrapper/dists'
-              echo 'zipStoreBase=GRADLE_USER_HOME'
-              echo 'zipStorePath=wrapper/dists'
-            } >> android/gradle/wrapper/gradle-wrapper.properties
-          fi
-
-          # root build.gradle → AGP 9 + Kotlin 2.0.21
-          cat > android/build.gradle <<'GRADLE'
-          plugins {
-            id 'com.android.application' version '9.0.0' apply false
-            id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          tasks.register("clean", Delete) { delete rootProject.buildDir }
-          GRADLE
-
-          # settings.gradle
-          cat > android/settings.gradle <<'GRADLE'
-          pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }
-          dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories { google(); mavenCentral() }
-          }
-          rootProject.name = "app"
-          include(":app")
-          GRADLE
-
-          # app/build.gradle moden + kotlin 2.0.21 + jvmTarget 17
-          APP_NS=$(node -e "try{const p=require('./app.json');process.stdout.write(p?.expo?.android?.package||p?.expo?.android?.packageName||'com.example.app');}catch(e){process.stdout.write('com.example.app');}")
-          cat > android/app/build.gradle <<GRADLE
-          plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-          android {
-            namespace "${APP_NS}"
-            compileSdk 34
-            defaultConfig {
-              applicationId "${APP_NS}"
-              minSdk 24
-              targetSdk 34
-              versionCode 1
-              versionName "1.0.0"
-            }
-            buildTypes {
-              debug { }
-              release {
-                minifyEnabled false
-                shrinkResources false
-                signingConfig signingConfigs.debug
-              }
-            }
-            compileOptions {
-              sourceCompatibility JavaVersion.VERSION_17
-              targetCompatibility JavaVersion.VERSION_17
-            }
-            kotlinOptions { jvmTarget = "17" }
-          }
-          kotlin { jvmToolchain(17) }
-          dependencies {
-            implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.7.0'
-            implementation 'com.facebook.react:react-android:+'
-          }
-          GRADLE
-
-          # buang legacy block jika ada
-          sed -i '/applicationVariants\.all/,$d' android/app/build.gradle || true
-
-          # gradle.properties (warning mode)
-          grep -q '^org.gradle.warning.mode=' android/gradle.properties 2>/dev/null || echo 'org.gradle.warning.mode=all' >> android/gradle.properties
-
-      - name: Verify Gradle/Java/Kotlin
-        script: |
-          set -euxo pipefail
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
           cd android
           chmod +x gradlew || true
           ./gradlew --version
           java -version
           cd ..
 
-      - name: Build debug APK
+      - name: Build debug APK (assembleDebug)
         script: |
           set -euxo pipefail
           cd android
           ./gradlew clean assembleDebug --no-daemon --console=plain --stacktrace --info -Pkotlin.compiler.execution.strategy=in-process
           cd ..
-
       - name: Collect artifact
         script: |
           set -euxo pipefail
@@ -116,6 +35,5 @@ workflows:
           APK=$(find android/app/build -type f -name "*debug*.apk" | head -n 1 || true)
           test -n "$APK" || { echo "No debug APK produced"; exit 1; }
           cp "$APK" builds/android/app-debug.apk
-
     artifacts:
       - builds/android/app-debug.apk
