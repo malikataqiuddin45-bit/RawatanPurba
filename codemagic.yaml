@@ -1,221 +1,95 @@
 workflows:
 
-  # 1) NATIVE ANDROID — DEBUG (assembleDebug)
-  #    Output: builds/android/app-preview.apk
+  # ================== DEBUG APK (Native Gradle) ==================
   native_android_debug:
-    name: Native Android Debug (assembleDebug)
+    name: Native Android Debug (index.sh → assembleDebug)
     instance_type: linux_x2
     max_build_duration: 60
     environment:
       node: 20
-      npm: 9
       java: 17
       vars:
         EXPO_NO_INTERACTIVE: "true"
-        PROFILE: "preview"
     scripts:
-      - name: Install dependencies
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build debug (native)
+        script: ./index.sh --native-android -p debug --no-install
+      - name: Check artifact
         script: |
-          npm ci || npm install
-      - name: Expo prebuild (android only)
-        script: |
-          npx expo prebuild --platform android --clean --non-interactive
-      - name: Gradle assembleDebug
-        script: |
-          cd android
-          chmod +x gradlew || true
-          ./gradlew clean
-          ./gradlew --no-daemon assembleDebug --stacktrace
-          cd ..
-      - name: Collect artifact (multi-path Expo 54 fix)
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f \
-            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
-          if [ -z "$APK" ]; then
-            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
-            find android/app/build/outputs -type f -name "*.apk" || true
-            exit 1
-          fi
-          cp "$APK" builds/android/app-debug.apk
-          echo "✅ APK copied: builds/android/app-debug.apk"
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1)
-          test -n "$APK" || { echo "No debug APK produced"; exit 1; }
-          cp "$APK" "builds/android/app-preview.apk"
-          echo "✅ Wrote: builds/android/app-preview.apk"
+          ls -la builds/android || true
+          test -f builds/android/app-debug.apk || { echo "No debug APK produced"; exit 1; }
     artifacts:
-      - builds/android/app-preview.apk
+      - builds/android/app-debug.apk
 
-  # 2) NATIVE ANDROID — RELEASE APK (assembleRelease)
-  #    Output: builds/android/app-production.apk
+  # ================== RELEASE APK (Native Gradle) ==================
   native_android_release_apk:
-    name: Native Android Release APK (assembleRelease)
+    name: Native Android Release APK (index.sh → assembleRelease)
     instance_type: linux_x2
+    max_build_duration: 60
     environment:
       node: 20
-      npm: 9
       java: 17
       vars:
         EXPO_NO_INTERACTIVE: "true"
-        PROFILE: "production"
     scripts:
-      - name: Install deps & prebuild
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build release APK (native)
+        script: ./index.sh --native-android -p production --apk --no-install
+      - name: Check artifact
         script: |
-          npm ci || npm install
-          npx expo prebuild --platform android --clean --non-interactive
-      - name: Gradle assembleRelease
-        script: |
-          cd android
-          chmod +x gradlew || true
-          ./gradlew clean
-          ./gradlew --no-daemon assembleRelease --stacktrace
-          cd ..
-      - name: Collect artifact (multi-path Expo 54 fix)
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f \
-            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
-          if [ -z "$APK" ]; then
-            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
-            find android/app/build/outputs -type f -name "*.apk" || true
-            exit 1
-          fi
-          cp "$APK" builds/android/app-debug.apk
-          echo "✅ APK copied: builds/android/app-debug.apk"
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f -name "*release*.apk" | head -n 1)
-          test -n "$APK" || { echo "No release APK produced"; exit 1; }
-          cp "$APK" "builds/android/app-production.apk"
-          echo "✅ Wrote: builds/android/app-production.apk"
+          ls -la builds/android || true
+          test -f builds/android/app-production.apk || { echo "No release APK produced"; exit 1; }
     artifacts:
       - builds/android/app-production.apk
 
-  # 3) NATIVE ANDROID — RELEASE AAB (bundleRelease)
-  #    Output: builds/android/app-production.aab
+  # ================== RELEASE AAB (Native Gradle) ==================
   native_android_release_aab:
-    name: Native Android Release AAB (bundleRelease)
+    name: Native Android Release AAB (index.sh → bundleRelease)
     instance_type: linux_x2
+    max_build_duration: 60
     environment:
       node: 20
-      npm: 9
       java: 17
       vars:
-        PROFILE: "production"
+        EXPO_NO_INTERACTIVE: "true"
     scripts:
-      - name: Install deps & prebuild
+      - name: Install deps
+        script: npm ci || npm install
+      - name: Ensure index.sh executable
+        script: chmod +x index.sh
+      - name: Build AAB (native)
+        script: ./index.sh --native-android -p production --aab --no-install
+      - name: Check artifact
         script: |
-          npm ci || npm install
-          npx expo prebuild --platform android --clean --non-interactive
-      - name: Gradle bundleRelease
-        script: |
-          cd android
-          chmod +x gradlew || true
-          ./gradlew clean
-          ./gradlew --no-daemon bundleRelease --stacktrace
-          cd ..
-      - name: Collect artifact (multi-path Expo 54 fix)
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f \
-            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
-          if [ -z "$APK" ]; then
-            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
-            find android/app/build/outputs -type f -name "*.apk" || true
-            exit 1
-          fi
-          cp "$APK" builds/android/app-debug.apk
-          echo "✅ APK copied: builds/android/app-debug.apk"
-        script: |
-          mkdir -p builds/android
-          AAB=$(find android/app/build/outputs -type f -name "*.aab" | head -n 1)
-          test -n "$AAB" || { echo "No AAB produced"; exit 1; }
-          cp "$AAB" "builds/android/app-production.aab"
-          echo "✅ Wrote: builds/android/app-production.aab"
+          ls -la builds/android || true
+          test -f builds/android/app-production.aab || { echo "No AAB produced"; exit 1; }
     artifacts:
       - builds/android/app-production.aab
 
-  # 4) CONVERT AAB → UNIVERSAL APK (bundletool)
-  #    Input:  builds/android/app-production.aab
-  #    Output: builds/android/app-universal.apk
+  # ===== Convert AAB → APK universal (bundletool, ikut index.sh) =====
   convert_aab_to_apk:
-    name: Convert AAB to Universal APK (bundletool)
+    name: Convert AAB to Universal APK (index.sh bundletool)
     instance_type: linux_x2
+    max_build_duration: 30
     environment:
       java: 17
     scripts:
       - name: Ensure AAB exists
         script: |
-          test -f builds/android/app-production.aab || { echo "Expected builds/android/app-production.aab not found. Run 'native_android_release_aab' first."; exit 1; }
-      - name: Download bundletool & convert to universal APK
+          test -f builds/android/app-production.aab || { echo "Run native_android_release_aab dahulu"; exit 1; }
+      - name: Convert via index.sh
         script: |
-          curl -sL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar
-          java -jar bundletool.jar build-apks \
-            --bundle=builds/android/app-production.aab \
-            --output=builds/android/app.apks \
-            --mode=universal
-          unzip -o builds/android/app.apks universal.apk -d builds/android
-          mv builds/android/universal.apk builds/android/app-universal.apk
-          echo "✅ Wrote: builds/android/app-universal.apk"
+          ./index.sh --convert-aab builds/android/app-production.aab
+          mkdir -p builds/android
+          # index.sh biasanya hasilkan app-universal.apk → pindahkan ke lokasi standard
+          APK=$(find . -type f -name "app-universal.apk" | head -n 1 || true)
+          test -n "$APK" || { echo "No universal APK produced"; exit 1; }
+          mv "$APK" builds/android/app-universal.apk
     artifacts:
       - builds/android/app-universal.apk
-
-  # ========================= ANDROID (selari gaya iOS) ======================
-  react-native-android:
-    name: React Native Android (APK + AAB)
-    instance_type: linux_x2
-    max_build_duration: 60
-    environment:
-      node: 20
-      npm: 9
-      java: 17
-      vars:
-        EXPO_RELEASE_CHANNEL: "android-mars"
-    scripts:
-      - name: Install deps & Expo CLI
-        script: |
-          yarn install || npm install
-          npm i -g expo-cli
-      - name: Expo prebuild Android
-        script: |
-          npx expo prebuild --platform android --clean --non-interactive
-      - name: Publish (optional — ikut channel)
-        script: |
-          if [ -n "${EXPO_TOKEN:-}" ]; then
-            npx expo login --token "$EXPO_TOKEN"
-          else
-            npx expo login -u "$EXPO_USERNAME" -p "$EXPO_PASSWORD"
-          fi
-          npx expo publish --non-interactive --max-workers 1 --release-channel "$EXPO_RELEASE_CHANNEL"
-      - name: Build APK (Debug) & AAB (Release)
-        script: |
-          cd android
-          chmod +x gradlew || true
-          ./gradlew clean
-          ./gradlew assembleDebug --stacktrace
-          ./gradlew bundleRelease --stacktrace
-          cd ..
-      - name: Collect artifact (multi-path Expo 54 fix)
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f \
-            \( -path "*apk*debug*.apk" -o -path "*outputs*apk*release*.apk" -o -path "*outputs*apk*.apk" \) | head -n 1 || true)
-          if [ -z "$APK" ]; then
-            echo "❌ No APK found in known locations (debug/release). Check Gradle logs."
-            find android/app/build/outputs -type f -name "*.apk" || true
-            exit 1
-          fi
-          cp "$APK" builds/android/app-debug.apk
-          echo "✅ APK copied: builds/android/app-debug.apk"
-        script: |
-          mkdir -p builds/android
-          APK=$(find android/app/build/outputs -type f -name "*debug*.apk" | head -n 1 || true)
-          AAB=$(find android/app/build/outputs -type f -name "*.aab"        | head -n 1 || true)
-          [ -n "$APK" ] && cp "$APK" builds/android/app-debug.apk || echo "⚠️  No APK found"
-          [ -n "$AAB" ] && cp "$AAB" builds/android/app-release.aab || echo "⚠️  No AAB found"
-          [ -n "$APK$AAB" ] || { echo "❌ No artifacts produced"; exit 1; }
-    artifacts:
-      - builds/android/app-debug.apk
-      - builds/android/app-release.aab
