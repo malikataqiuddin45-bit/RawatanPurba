@@ -34,9 +34,15 @@ workflows:
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug --stacktrace
           cd ..
-      - name: Collect artifact
+      - name: Collect artifact (auto-detect)
         script: |
+          echo "🔍 Searching for APK output..."
+          APK_PATH=$(find android/app/build/outputs -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ Tiada APK dijumpai, semak build.gradle"
+            exit 1
+          fi
+          echo "✅ Jumpa APK di: $APK_PATH"
           mkdir -p build
-          cp android/app/build/outputs/apk/debug/app-debug.apk build/forensik-debug.apk
-    artifacts:
-      - build/forensik-debug.apk
+          cp "$APK_PATH" build/forensik-debug.apk
+          echo "✅ Disalin ke build/forensik-debug.apk"
