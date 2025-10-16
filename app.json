@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Forensik-nama",
+    "slug": "forensik-nama",
+    "scheme": "forensiknama",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router"
+    ],
+    "android": {
+      "package": "com.redsulphur.forensiknama",
+      "versionCode": 1,
+      "permissions": [],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "forensiknama"
+            }
+          ]
+        }
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.redsulphur.forensiknama",
+      "buildNumber": "1"
+    },
+    "icon": "./assets/icon.png",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2735bf9e-f321-4912-aa9d-f2df1571b342"
+      }
+    },
+    "owner": "alitaqiuddin"
+  }
+}

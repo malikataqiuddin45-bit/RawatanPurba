@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Forensik-nama",
+    "slug": "forensik-nama",
+    "scheme": "forensiknama",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-router"],
+    "android": {
+      "package": "com.redsulphur.forensiknama",
+      "versionCode": 1,
+      "permissions": [],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [{ "scheme": "forensiknama" }]
+        }
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.redsulphur.forensiknama",
+      "buildNumber": "1"
+    }
+  }
+}
